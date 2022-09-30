@@ -9,6 +9,7 @@ from selenium.webdriver.common.by import By
 URL_CABECERA = "https://www.flashscore.es/partido/"
 URL_RESUMEN = "/#/resumen-del-partido/resumen-del-partido"
 URL_ESTADISCTICAS = "/#/resumen-del-partido/estadisticas-del-partido/"
+URL_CALENDARIO = '/#/resumen-del-partido'
 URL_GITHUB = "https://github.com/isibi/DWFootball/blob/master/escudos/"
 FOLDER_ESCUDOS = "D:/Business Intelligence/DWFutbol/Imagenes/Escudos Equipos/"
 AMARILLA = 'card-ico yellowCard-ico'
@@ -30,7 +31,8 @@ def begin_scrap(list_matches, modo, flashscore, year, conexion, cursor, country,
             statistics(flashscore, driver, match_id, year, conexion, cursor, country, competition, stage_area
                        , guardar_escudo)
         else:
-            calendario(match_id, driver, year, conexion, cursor, stage_area, country, competition, guardar_escudo)
+            calendario(flashscore, driver, match_id, year, conexion, cursor, stage_area, country, competition,
+                       guardar_escudo)
         count = count + 1
 
 
@@ -56,10 +58,11 @@ def statistics(flashscore, driver, match_id, year, conexion, cursor, country, co
             # Tiene Estadisticas completas ó Estadisticas en el Resumen
             if "ESTADÍSTICAS" in tabs:
                 match_type = 'all'
-                all_statistics(driver, match_id, year, conexion, cursor, country, stage_area, guardar_escudo)
+                all_statistics(driver, match_id, year, conexion, cursor, country, stage_area, guardar_escudo
+                               , competition)
             else:
                 match_type = 'resume'
-                only_resume(driver, match_id, year, country, conexion, cursor, stage_area, guardar_escudo)
+                only_resume(driver, match_id, year, country, conexion, cursor, stage_area, guardar_escudo, competition)
         except NoSuchElementException:
             # No tiene estadisticas
             try:
@@ -67,17 +70,18 @@ def statistics(flashscore, driver, match_id, year, conexion, cursor, country, co
                 if anulado == "APLAZADO" or anulado == "ANULADO" or anulado == 'WALKOVER':
                     match_type = 'incident'
                     incident_match(driver, match_id, year, country, conexion, cursor, stage_area, guardar_escudo,
-                                   anulado)
+                                   anulado, competition)
                 else:
                     match_type = 'score'
-                    only_score(driver, match_id, year, conexion, country, cursor, stage_area, guardar_escudo)
+                    only_score(driver, match_id, year, conexion, country, cursor, stage_area, guardar_escudo
+                               , competition)
             except NoSuchElementException:
                 pass
     except Exception as e:
         flashscore.save_log_error(country, competition, year, match_id, match_type, e)
 
 
-def all_statistics(driver, match_id, year, cnxn, cursor, country, stage_area, guardar_escudo):
+def all_statistics(driver, match_id, year, cnxn, cursor, country, stage_area, guardar_escudo, competition):
     # Informacion General
     if year == "":
         year = YEAR
@@ -162,7 +166,7 @@ def all_statistics(driver, match_id, year, cnxn, cursor, country, stage_area, gu
     except NoSuchElementException:
         pass
     if guardar_escudo == 'yes':
-        match = save_team_images(driver, country, match)
+        match = save_team_images(driver, country, match, competition)
 
     columns = ', '.join(str(x).replace('/', '_') for x in match.keys())
     values = ', '.join("'" + str(x).replace('[', '').replace(']', '').replace("'", '') + "'" for x in match.values())
@@ -189,7 +193,7 @@ def all_statistics(driver, match_id, year, cnxn, cursor, country, stage_area, gu
     cnxn.commit()
 
 
-def only_resume(driver, match_id, year, country, cnxn, cursor, stage_area, guardar_escudo):
+def only_resume(driver, match_id, year, country, cnxn, cursor, stage_area, guardar_escudo, competition):
     incidentes = {
         "cards": [],
         "goals": [],
@@ -236,7 +240,7 @@ def only_resume(driver, match_id, year, country, cnxn, cursor, stage_area, guard
     match["TARJETAS_ROJAS_2T"] = incidentes["red_second_time"]
 
     if guardar_escudo == 'yes':
-        match = save_team_images(driver, country, match)
+        match = save_team_images(driver, country, match, competition)
 
     columns = ', '.join(str(x).replace('/', '_') for x in match.keys())
     values = ', '.join("'" + str(x).replace('[', '').replace(']', '').replace("'", '') + "'" for x in match.values())
@@ -321,14 +325,14 @@ def extract_incidents(driver, homeaway, incidentes):
         pass
 
 
-def incident_match(driver, match_id, year, country, cnxn, cursor, stage_area, guardar_escudo, anulado):
+def incident_match(driver, match_id, year, country, cnxn, cursor, stage_area, guardar_escudo, anulado, competition):
     # Informacion General
     if year == "":
         year = YEAR
     match = init_match(driver, match_id, year)
     match["Info"] = anulado
     if guardar_escudo == 'yes':
-        match = save_team_images(driver, country, match)
+        match = save_team_images(driver, country, match, competition)
 
     columns = ', '.join(str(x).replace('/', '_') for x in match.keys())
     values = ', '.join("'" + str(x).replace('[', '').replace(']', '').replace("'", '') + "'" for x in match.values())
@@ -337,7 +341,7 @@ def incident_match(driver, match_id, year, country, cnxn, cursor, stage_area, gu
     cnxn.commit()
 
 
-def only_score(driver, match_id, year, cnxn, country, cursor, stage_area, guardar_escudo):
+def only_score(driver, match_id, year, cnxn, country, cursor, stage_area, guardar_escudo, competition):
     if year == "":
         year = YEAR
 
@@ -359,7 +363,7 @@ def only_score(driver, match_id, year, cnxn, country, cursor, stage_area, guarda
     except NoSuchElementException:
         pass
     if guardar_escudo == 'yes':
-        match = save_team_images(driver, country, match)
+        match = save_team_images(driver, country, match, competition)
 
     columns = ', '.join(str(x).replace('/', '_') for x in match.keys())
     values = ', '.join("'" + str(x).replace('[', '').replace(']', '').replace("'", '') + "'" for x in match.values())
@@ -368,47 +372,32 @@ def only_score(driver, match_id, year, cnxn, country, cursor, stage_area, guarda
     cnxn.commit()
 
 
-def calendario(driver, match_id, year, cnxn, cursor, stage_area, country, guardar_imagen):
-    if year == "":
-        year = YEAR
+def calendario(flashscore, driver, match_id, year, cnxn, cursor, stage_area, country, competition, guardar_escudo):
+    try:
+        url = URL_CABECERA + match_id + URL_CALENDARIO
+        driver.get(url)
 
-    if guardar_imagen == "no":
+        if year == "":
+            year = YEAR
+
         match = init_match(driver, match_id, year)
         match["Info"] = [item.text.replace("\n", "") for item in driver.find_elements(By.CLASS_NAME, "mi__item")]
 
-    if guardar_imagen == "yes":
-        # Guardar el escudo y la posible url en github de la imagen
-        folder = FOLDER_ESCUDOS + country + "\\"
-        match = {"Country": country,
-                 "Teams": [team.text for team in driver.find_elements(By.CLASS_NAME, "participant__overflow a")]}
-        try:
-            os.makedirs(folder)
-        except:
-            pass
+        if guardar_escudo == 'yes':
+            match = save_team_images(driver, country, match, competition)
 
-        list_teams = driver.find_elements(By.CLASS_NAME, "participant__participantLink--team img")
-        teams = []
-        j = 0
-        for team in list_teams:
-            teams.append({"nombre": unicodedata.normalize("NFKD", team.get_attribute('alt'))
-                         .encode("ascii", "ignore").decode("ascii"), "url": team.get_attribute('src')})
-            try:
-                urllib.request.urlretrieve(teams[j]["url"], folder + teams[j]["nombre"] + ".png")
-            except:
-                pass
-            j = j + 1
+        columns = ', '.join(str(x).replace('/', '_') for x in match.keys())
+        values = ', '.join("'" + str(x).replace('[', '').replace(']', '').replace("'", '') + "'" for x in match.values())
+        sql = "INSERT INTO %s ( %s ) VALUES ( %s );" % (stage_area, columns, values)
+        cursor.execute(sql)
+        cnxn.commit()
 
-        match["Escudo_Home"] = URL_GITHUB + teams[0]["nombre"] + ".png?raw=true"
-        match["Escudo_Away"] = URL_GITHUB + teams[1]["nombre"] + ".png?raw=true"
-
-    columns = ', '.join(str(x).replace('/', '_') for x in match.keys())
-    values = ', '.join("'" + str(x).replace('[', '').replace(']', '').replace("'", '') + "'" for x in match.values())
-    sql = "INSERT INTO %s ( %s ) VALUES ( %s );" % (stage_area, columns, values)
-    cursor.execute(sql)
-    cnxn.commit()
+    except Exception as e:
+        match_type = 'calendario'
+        flashscore.save_log_error(country, competition, year, match_id, match_type, e)
 
 
-def save_team_images(driver, country, match):
+def save_team_images(driver, country, match, competition):
     # Guardar el escudo y la posible url en github de la imagen
     folder = FOLDER_ESCUDOS + country + "\\"
     list_teams = driver.find_elements(By.CLASS_NAME, "participant__participantLink--team img")
@@ -423,7 +412,7 @@ def save_team_images(driver, country, match):
             pass
         j = j + 1
 
-    match["Escudo_Home"] = URL_GITHUB + teams[0]["nombre"] + ".png?raw=true"
-    match["Escudo_Away"] = URL_GITHUB + teams[1]["nombre"] + ".png?raw=true"
+    match["Escudo_Home"] = URL_GITHUB + competition + '/' + teams[0]["nombre"] + ".png?raw=true"
+    match["Escudo_Away"] = URL_GITHUB + competition + '/' + teams[1]["nombre"] + ".png?raw=true"
 
     return match
